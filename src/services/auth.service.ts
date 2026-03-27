@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
   signOut as firebaseSignOut,
   onAuthStateChanged,
@@ -55,6 +56,10 @@ export async function signIn(email: string, password: string): Promise<void> {
     await firebaseSignOut(auth);
     throw Object.assign(new Error('User record not found.'), { code: 'auth/user-record-missing' });
   }
+}
+
+export async function resetPassword(email: string): Promise<void> {
+  await sendPasswordResetEmail(auth, email.toLowerCase().trim());
 }
 
 export async function signOut(): Promise<void> {

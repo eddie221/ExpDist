@@ -541,6 +541,13 @@ body {
   font-size: 0.9375rem;
 }
 
+.auth-success {
+  font-size: 0.85rem;
+  color: var(--color-success);
+  text-align: left;
+  margin-bottom: 8px;
+}
+
 .auth-error {
   font-size: 0.85rem;
   color: var(--color-danger);
