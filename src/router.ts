@@ -6,6 +6,7 @@ function parseHash(hash: string): Route {
   const path = hash.replace(/^#/, '') || '/';
   if (path === '/' || path === '/groups') return { name: 'groups' };
   if (path === '/login') return { name: 'login' };
+  if (path === '/profile') return { name: 'profile' };
 
   const groupMatch = path.match(/^\/groups\/([^/]+)$/);
   if (groupMatch) return { name: 'group', id: groupMatch[1] };
@@ -23,6 +24,9 @@ export function navigate(route: Route): void {
       break;
     case 'group':
       window.location.hash = `/groups/${route.id}`;
+      break;
+    case 'profile':
+      window.location.hash = '/profile';
       break;
     default:
       window.location.hash = '/';

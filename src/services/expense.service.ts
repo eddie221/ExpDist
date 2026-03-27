@@ -1,6 +1,7 @@
 import {
   collection,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   onSnapshot,
@@ -49,6 +50,22 @@ export async function addExpense(
     paidBy,
     splitBetween,
     createdAt: serverTimestamp(),
+  });
+}
+
+export async function updateExpense(
+  groupId: string,
+  expenseId: string,
+  description: string,
+  amountCents: number,
+  paidBy: string,
+  splitBetween: string[]
+): Promise<void> {
+  await updateDoc(doc(db, 'groups', groupId, 'expenses', expenseId), {
+    description,
+    amount: amountCents,
+    paidBy,
+    splitBetween,
   });
 }
 

@@ -61,10 +61,24 @@ export async function addMemberToGroup(groupId: string, member: GroupMember): Pr
   });
 }
 
+export function subscribeToGroup(
+  groupId: string,
+  onChange: (group: Group | null) => void
+): Unsubscribe {
+  return onSnapshot(doc(db, 'groups', groupId), snap => {
+    if (!snap.exists()) { onChange(null); return; }
+    onChange(toGroup(snap.id, snap.data() as Record<string, unknown>));
+  });
+}
+
 export async function getGroup(groupId: string): Promise<Group | null> {
   const snap = await getDoc(doc(db, 'groups', groupId));
   if (!snap.exists()) return null;
   return toGroup(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function updateGroupName(groupId: string, name: string): Promise<void> {
+  await updateDoc(doc(db, 'groups', groupId), { name });
 }
 
 export async function deleteGroup(groupId: string): Promise<void> {

@@ -1,40 +1,90 @@
-import { signInWithGoogle } from '../../services/auth.service.js';
+import { signIn, signUp } from '../../services/auth.service.js';
 
 export function renderLoginPage(container: HTMLElement): void {
-  container.innerHTML = `
-    <div class="login-page">
-      <div class="login-card">
-        <div class="login-logo">
-          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="56" height="56">
-            <rect width="48" height="48" rx="12" fill="var(--color-primary)"/>
-            <text x="24" y="32" text-anchor="middle" font-size="24" fill="white" font-family="sans-serif">$</text>
-          </svg>
-        </div>
-        <h1 class="login-title">ExpDist</h1>
-        <p class="login-subtitle">Split expenses with friends, simplified.</p>
-        <button class="btn btn-google" id="google-sign-in">
-          <svg viewBox="0 0 24 24" width="20" height="20" xmlns="http://www.w3.org/2000/svg">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-          </svg>
-          Sign in with Google
-        </button>
-      </div>
-    </div>
-  `;
+  let mode: 'login' | 'signup' = 'login';
 
-  container.querySelector('#google-sign-in')!.addEventListener('click', async () => {
-    const btn = container.querySelector<HTMLButtonElement>('#google-sign-in')!;
-    btn.disabled = true;
-    btn.textContent = 'Signing in…';
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      console.error(err);
-      btn.disabled = false;
-      btn.innerHTML = 'Sign in with Google';
-    }
-  });
+  function render() {
+    const isSignup = mode === 'signup';
+    container.innerHTML = `
+      <div class="login-page">
+        <div class="login-card">
+          <div class="login-logo">
+            <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" width="56" height="56">
+              <rect width="48" height="48" rx="12" fill="var(--color-primary)"/>
+              <text x="24" y="32" text-anchor="middle" font-size="24" fill="white" font-family="sans-serif">$</text>
+            </svg>
+          </div>
+          <h1 class="login-title">ExpDist</h1>
+          <p class="login-subtitle">Split expenses with friends, simplified.</p>
+
+          <form id="auth-form" class="auth-form">
+            ${isSignup ? `
+              <input class="input" id="display-name" type="text" placeholder="Your name" required autocomplete="name" />
+            ` : ''}
+            <input class="input" id="email" type="email" placeholder="Email" required autocomplete="email" />
+            <input class="input" id="password" type="password" placeholder="Password" required autocomplete="${isSignup ? 'new-password' : 'current-password'}" minlength="6" />
+            <div id="auth-error" class="auth-error" hidden></div>
+            <button type="submit" class="btn btn-primary btn-full">
+              ${isSignup ? 'Create Account' : 'Sign In'}
+            </button>
+          </form>
+
+          <p class="auth-toggle">
+            ${isSignup
+              ? 'Already have an account? <button class="btn-link" id="toggle-mode">Sign in</button>'
+              : 'No account? <button class="btn-link" id="toggle-mode">Create one</button>'
+            }
+          </p>
+        </div>
+      </div>
+    `;
+
+    container.querySelector('#toggle-mode')!.addEventListener('click', () => {
+      mode = isSignup ? 'login' : 'signup';
+      render();
+    });
+
+    container.querySelector('#auth-form')!.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = e.currentTarget as HTMLFormElement;
+      const email = (form.querySelector('#email') as HTMLInputElement).value.trim();
+      const password = (form.querySelector('#password') as HTMLInputElement).value;
+      const errorEl = form.querySelector<HTMLElement>('#auth-error')!;
+      const submitBtn = form.querySelector<HTMLButtonElement>('[type="submit"]')!;
+
+      errorEl.hidden = true;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Please wait…';
+
+      try {
+        if (isSignup) {
+          const name = (form.querySelector('#display-name') as HTMLInputElement).value.trim();
+          await signUp(email, password, name);
+        } else {
+          await signIn(email, password);
+        }
+      } catch (err: unknown) {
+        const msg = friendlyError(err);
+        errorEl.textContent = msg;
+        errorEl.hidden = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = isSignup ? 'Create Account' : 'Sign In';
+      }
+    });
+  }
+
+  render();
+}
+
+function friendlyError(err: unknown): string {
+  const code = (err as { code?: string }).code ?? '';
+  switch (code) {
+    case 'auth/email-already-in-use':  return 'That email is already registered. Try signing in.';
+    case 'auth/invalid-email':         return 'Invalid email address.';
+    case 'auth/weak-password':         return 'Password must be at least 6 characters.';
+    case 'auth/user-not-found':
+    case 'auth/wrong-password':
+    case 'auth/invalid-credential':    return 'Incorrect email or password.';
+    default:                           return 'Something went wrong. Please try again.';
+  }
 }

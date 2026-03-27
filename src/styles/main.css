@@ -233,7 +233,10 @@ body {
   box-shadow: var(--shadow-md);
   width: 100%;
   max-width: 440px;
+  max-height: 90vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -251,6 +254,7 @@ body {
 
 .modal-body {
   padding: 20px;
+  overflow-y: auto;
 }
 
 .modal-footer {
@@ -299,6 +303,46 @@ body {
 .group-item-actions {
   display: flex;
   gap: 8px;
+}
+
+/* ============================================================
+   Member Chips
+   ============================================================ */
+.member-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.member-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+
+.member-chip-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.member-chip-name {
+  font-size: 0.85rem;
+  color: var(--color-text);
 }
 
 /* ============================================================
@@ -359,6 +403,19 @@ body {
 /* ============================================================
    Settlement
    ============================================================ */
+.settlement-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.settlement-group-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
 .settlement-section {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -401,8 +458,27 @@ body {
 .settlement-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   font-size: 0.9rem;
+}
+
+.settlement-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-confirm {
+  background: #ebf8f0;
+  color: var(--color-success);
+  border: 1px solid #9ae6b4;
+  flex-shrink: 0;
+}
+.btn-confirm:hover:not(:disabled) {
+  background: #c6f6d5;
 }
 
 .settlement-arrow { color: var(--color-text-muted); }
@@ -450,17 +526,124 @@ body {
 .login-title { font-size: 1.75rem; font-weight: 800; color: var(--color-primary); }
 .login-subtitle { color: var(--color-text-muted); margin-bottom: 8px; }
 
-.btn-google {
-  background: #fff;
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 4px;
+}
+
+.btn-full {
   width: 100%;
   justify-content: center;
-  padding: 12px 16px;
+  padding: 12px;
   font-size: 0.9375rem;
-  box-shadow: var(--shadow);
 }
-.btn-google:hover { background: var(--color-bg); }
+
+.auth-error {
+  font-size: 0.85rem;
+  color: var(--color-danger);
+  text-align: left;
+}
+
+.auth-toggle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.invite-success {
+  font-size: 0.85rem;
+  color: var(--color-success);
+}
+
+/* ============================================================
+   Contact History (Invite Modal)
+   ============================================================ */
+.contact-history {
+  margin-bottom: 4px;
+}
+
+.contact-history-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.contact-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 4px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--color-bg);
+}
+
+.contact-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.contact-name {
+  flex: 1;
+  font-size: 0.9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.contact-divider {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin: 12px 0 8px;
+  position: relative;
+}
+
+.contact-divider::before,
+.contact-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 30%;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.contact-divider::before { left: 0; }
+.contact-divider::after  { right: 0; }
 
 /* ============================================================
    Misc
@@ -499,4 +682,115 @@ body {
 
 .back-btn {
   flex-shrink: 0;
+}
+
+.group-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  padding: 2px 4px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.btn-icon:hover { color: var(--color-text); }
+
+/* ============================================================
+   Profile Page
+   ============================================================ */
+.profile-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-name {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.profile-fields {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 12px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.profile-value {
+  font-size: 0.9375rem;
+  color: var(--color-text);
+}
+
+.profile-id {
+  font-family: monospace;
+  font-size: 0.8rem;
+  word-break: break-all;
+  color: var(--color-text-muted);
+}
+
+.profile-id-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.username-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.username-actions {
+  display: flex;
+  justify-content: flex-end;
 }

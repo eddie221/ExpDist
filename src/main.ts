@@ -6,6 +6,7 @@ import { initRouter, navigate } from './router.js';
 import { renderLoginPage } from './components/auth/LoginPage.js';
 import { renderGroupList } from './components/groups/GroupList.js';
 import { renderExpenseList } from './components/expenses/ExpenseList.js';
+import { renderProfilePage } from './components/profile/ProfilePage.js';
 import type { Route } from './types/index.js';
 
 const appEl = document.getElementById('app')!;
@@ -48,6 +49,10 @@ function handleRoute(route: Route): void {
         }
         cleanupRoute = renderExpenseList(appEl, group);
       })();
+      break;
+
+    case 'profile':
+      renderProfilePage(appEl);
       break;
 
     default:

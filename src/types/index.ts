@@ -8,6 +8,7 @@ export interface User {
 export interface GroupMember {
   uid: string;
   displayName: string;
+  email?: string;
 }
 
 export interface Group {
@@ -47,4 +48,5 @@ export type Route =
   | { name: 'login' }
   | { name: 'groups' }
   | { name: 'group'; id: string }
+  | { name: 'profile' }
   | { name: 'not-found' };
