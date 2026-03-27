@@ -15,14 +15,15 @@ export function initAuth(onReady: () => void): () => void {
   let ready = false;
   return onAuthStateChanged(auth, async fbUser => {
     if (fbUser) {
-      const record = await getUserRecord(fbUser.uid);
+      let displayName = fbUser.displayName ?? fbUser.email ?? 'User';
+      try {
+        const record = await getUserRecord(fbUser.uid);
+        if (record?.displayName) displayName = record.displayName;
+      } catch {
+        // fall back to Firebase Auth display name
+      }
       store.setState({
-        user: {
-          uid: fbUser.uid,
-          displayName: record?.displayName ?? fbUser.displayName ?? fbUser.email ?? 'User',
-          email: fbUser.email,
-          photoURL: fbUser.photoURL,
-        },
+        user: { uid: fbUser.uid, displayName, email: fbUser.email, photoURL: fbUser.photoURL },
       });
     } else {
       store.setState({ user: null });
