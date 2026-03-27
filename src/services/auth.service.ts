@@ -11,16 +11,25 @@ import { store } from '../store/app.store.js';
 import { createUserRecord, getUserRecord } from './user.service.js';
 
 
+// Set before createUserWithEmailAndPassword so onAuthStateChanged picks it up immediately
+let pendingDisplayName: string | null = null;
+
 export function initAuth(onReady: () => void): () => void {
   let ready = false;
   return onAuthStateChanged(auth, async fbUser => {
     if (fbUser) {
-      let displayName = fbUser.displayName ?? fbUser.email ?? 'User';
-      try {
-        const record = await getUserRecord(fbUser.uid);
-        if (record?.displayName) displayName = record.displayName;
-      } catch {
-        // fall back to Firebase Auth display name
+      let displayName: string;
+      if (pendingDisplayName) {
+        // Sign-up in progress — use the known name, skip Firestore lookup
+        displayName = pendingDisplayName;
+      } else {
+        displayName = fbUser.displayName ?? fbUser.email ?? 'User';
+        try {
+          const record = await getUserRecord(fbUser.uid);
+          if (record?.displayName) displayName = record.displayName;
+        } catch {
+          // fall back to Firebase Auth display name
+        }
       }
       store.setState({
         user: { uid: fbUser.uid, displayName, email: fbUser.email, photoURL: fbUser.photoURL },
@@ -36,16 +45,22 @@ export function initAuth(onReady: () => void): () => void {
 }
 
 export async function signUp(email: string, password: string, displayName: string): Promise<void> {
-  const cred = await createUserWithEmailAndPassword(auth, email, password);
-  await updateProfile(cred.user, { displayName });
-
-  // Create the user record in Firestore
-  await createUserRecord({
-    uid: cred.user.uid,
-    displayName,
-    email: email.toLowerCase().trim(),
-    photoURL: null,
-  });
+  pendingDisplayName = displayName;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(cred.user, { displayName });
+    await createUserRecord({
+      uid: cred.user.uid,
+      displayName,
+      email: email.toLowerCase().trim(),
+      photoURL: null,
+    });
+    store.setState({
+      user: { uid: cred.user.uid, displayName, email: cred.user.email, photoURL: null },
+    });
+  } finally {
+    pendingDisplayName = null;
+  }
 }
 
 export async function signIn(email: string, password: string): Promise<void> {

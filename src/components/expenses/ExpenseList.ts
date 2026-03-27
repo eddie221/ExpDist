@@ -17,6 +17,8 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
 
   let expenses: Expense[] = [];
   let memberNameMap: Record<string, string> = {};
+  let searchQuery = '';
+  let filterPaidBy = '';
   let unsubGroup: Unsubscribe | null = null;
   let unsubExpenses: Unsubscribe | null = null;
 
@@ -75,34 +77,93 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
             <h2>Expenses</h2>
           </div>
 
-          ${expenses.length === 0
-            ? '<div class="empty-state"><p>No expenses yet. Add one to get started!</p></div>'
-            : ''
-          }
+          <div class="expense-filters">
+            <input id="expense-search" class="input input-sm" type="search"
+              placeholder="Search expenses…" value="${escapeHtml(searchQuery)}" />
+            <select id="expense-filter-payer" class="input input-sm">
+              <option value="">All payers</option>
+              ${group.members.map(m => {
+                const name = memberNameMap[m.uid] ?? m.displayName;
+                return `<option value="${m.uid}"${filterPaidBy === m.uid ? ' selected' : ''}>${escapeHtml(name)}</option>`;
+              }).join('')}
+            </select>
+          </div>
 
-          <ul class="expense-list">
-            ${expenses.map(exp => `
-              <li class="expense-item">
-                <div class="expense-info">
-                  <span class="expense-desc">${escapeHtml(exp.description)}</span>
-                  <span class="expense-meta">
-                    Paid by ${escapeHtml(paidByMap[exp.paidBy] ?? exp.paidBy)}
-                    &mdash; split ${exp.splitBetween.length} way${exp.splitBetween.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-                <div class="expense-right">
-                  <span class="expense-amount">${formatCents(exp.amount)}</span>
-                  <button class="btn-icon expense-edit" data-id="${exp.id}" title="Edit">✎</button>
-                  <button class="btn btn-danger btn-sm expense-delete" data-id="${exp.id}">✕</button>
-                </div>
-              </li>
-            `).join('')}
-          </ul>
+          <div id="expense-list-root"></div>
         </main>
 
         <div id="modal-root"></div>
       </div>
     `;
+
+    // Expense items (also called on filter changes)
+    function renderExpenseItems() {
+      const q = searchQuery.toLowerCase();
+      const filtered = expenses.filter(exp => {
+        const matchSearch = !q || exp.description.toLowerCase().includes(q);
+        const matchPayer = !filterPaidBy || exp.paidBy === filterPaidBy;
+        return matchSearch && matchPayer;
+      });
+
+      const root = container.querySelector<HTMLElement>('#expense-list-root')!;
+      if (expenses.length === 0) {
+        root.innerHTML = '<div class="empty-state"><p>No expenses yet. Add one to get started!</p></div>';
+        return;
+      }
+      if (filtered.length === 0) {
+        root.innerHTML = '<div class="empty-state"><p>No expenses match your search.</p></div>';
+        return;
+      }
+
+      root.innerHTML = `
+        <ul class="expense-list">
+          ${filtered.map(exp => `
+            <li class="expense-item">
+              <div class="expense-info">
+                <span class="expense-desc">${escapeHtml(exp.description)}</span>
+                <span class="expense-meta">
+                  Paid by ${escapeHtml(paidByMap[exp.paidBy] ?? exp.paidBy)}
+                  &mdash; split ${exp.splitBetween.length} way${exp.splitBetween.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div class="expense-right">
+                <span class="expense-amount">${formatCents(exp.amount)}</span>
+                <button class="btn-icon expense-edit" data-id="${exp.id}" title="Edit">✎</button>
+                <button class="btn btn-danger btn-sm expense-delete" data-id="${exp.id}">✕</button>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+      `;
+
+      root.querySelectorAll('.expense-edit').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const id = (btn as HTMLElement).dataset.id!;
+          const exp = expenses.find(e => e.id === id)!;
+          const modalRoot = container.querySelector<HTMLElement>('#modal-root')!;
+          renderExpenseForm(modalRoot, group, user!, () => { modalRoot.innerHTML = ''; }, exp);
+        });
+      });
+
+      root.querySelectorAll('.expense-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = (btn as HTMLElement).dataset.id!;
+          if (confirm('Delete this expense?')) await deleteExpense(group.id, id);
+        });
+      });
+    }
+
+    renderExpenseItems();
+
+    container.querySelector('#expense-search')!.addEventListener('input', e => {
+      searchQuery = (e.target as HTMLInputElement).value;
+      renderExpenseItems();
+    });
+
+    container.querySelector('#expense-filter-payer')!.addEventListener('change', e => {
+      filterPaidBy = (e.target as HTMLSelectElement).value;
+      renderExpenseItems();
+    });
 
     // Settlement view
     const settlementRoot = container.querySelector<HTMLElement>('#settlement-root')!;
@@ -129,23 +190,6 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
       renderInviteModal(modalRoot, group, () => { modalRoot.innerHTML = ''; });
     });
 
-    container.querySelectorAll('.expense-edit').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = (btn as HTMLElement).dataset.id!;
-        const exp = expenses.find(e => e.id === id)!;
-        const modalRoot = container.querySelector<HTMLElement>('#modal-root')!;
-        renderExpenseForm(modalRoot, group, user!, () => { modalRoot.innerHTML = ''; }, exp);
-      });
-    });
-
-    container.querySelectorAll('.expense-delete').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const id = (btn as HTMLElement).dataset.id!;
-        if (confirm('Delete this expense?')) {
-          await deleteExpense(group.id, id);
-        }
-      });
-    });
   }
 
   async function onSettlementConfirmed(from: string, to: string, amount: number): Promise<void> {

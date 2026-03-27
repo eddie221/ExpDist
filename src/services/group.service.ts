@@ -3,13 +3,14 @@ import {
   doc,
   addDoc,
   updateDoc,
-  deleteDoc,
   getDoc,
+  getDocs,
   query,
   where,
   onSnapshot,
   serverTimestamp,
   arrayUnion,
+  writeBatch,
   Timestamp,
   type Unsubscribe,
 } from 'firebase/firestore';
@@ -82,5 +83,9 @@ export async function updateGroupName(groupId: string, name: string): Promise<vo
 }
 
 export async function deleteGroup(groupId: string): Promise<void> {
-  await deleteDoc(doc(db, 'groups', groupId));
+  const expensesSnap = await getDocs(collection(db, 'groups', groupId, 'expenses'));
+  const batch = writeBatch(db);
+  expensesSnap.docs.forEach(d => batch.delete(d.ref));
+  batch.delete(doc(db, 'groups', groupId));
+  await batch.commit();
 }

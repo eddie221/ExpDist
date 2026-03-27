@@ -348,6 +348,27 @@ body {
 /* ============================================================
    Expense List
    ============================================================ */
+.expense-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.input-sm {
+  padding: 6px 10px;
+  font-size: 0.875rem;
+  height: auto;
+}
+
+#expense-search {
+  flex: 1;
+}
+
+#expense-filter-payer {
+  flex-shrink: 0;
+  width: auto;
+}
+
 .expense-list {
   list-style: none;
   display: flex;
