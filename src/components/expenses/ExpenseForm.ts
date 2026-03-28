@@ -1,4 +1,5 @@
 import { addExpense, updateExpense } from '../../services/expense.service.js';
+import { writeLog } from '../../services/log.service.js';
 import type { Expense, Group, User } from '../../types/index.js';
 
 export function renderExpenseForm(
@@ -92,8 +93,24 @@ export function renderExpenseForm(
     try {
       if (isEdit && existing) {
         await updateExpense(group.id, existing.id, description, amountCents, paidBy, splitBetween);
+        writeLog(group.id, {
+          groupId: group.id,
+          action: 'edited',
+          expenseDescription: description,
+          amountCents,
+          actorUid: currentUser.uid,
+          actorName: currentUser.displayName,
+        }).catch(console.error);
       } else {
         await addExpense(group.id, description, amountCents, paidBy, splitBetween);
+        writeLog(group.id, {
+          groupId: group.id,
+          action: 'added',
+          expenseDescription: description,
+          amountCents,
+          actorUid: currentUser.uid,
+          actorName: currentUser.displayName,
+        }).catch(console.error);
       }
       close();
     } catch (err) {

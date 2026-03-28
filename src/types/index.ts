@@ -31,6 +31,17 @@ export interface Expense {
   createdAt: Date;
 }
 
+export interface LogEntry {
+  id: string;
+  groupId: string;
+  action: 'added' | 'edited' | 'deleted';
+  expenseDescription: string;
+  amountCents: number;
+  actorUid: string;
+  actorName: string;
+  createdAt: Date;
+}
+
 export interface Balance {
   uid: string;
   displayName: string;

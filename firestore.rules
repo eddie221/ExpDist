@@ -31,5 +31,13 @@ service cloud.firestore {
                          && request.auth.uid in
                             get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
     }
+
+    // Logs: any group member can read; any group member can create (no update/delete)
+    match /groups/{groupId}/logs/{logId} {
+      allow read, create: if request.auth != null
+                          && exists(/databases/$(database)/documents/groups/$(groupId))
+                          && request.auth.uid in
+                             get(/databases/$(database)/documents/groups/$(groupId)).data.memberUids;
+    }
   }
 }

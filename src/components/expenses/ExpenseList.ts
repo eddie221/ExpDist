@@ -2,11 +2,12 @@ import { store } from '../../store/app.store.js';
 import { subscribeToExpenses, deleteExpense, addExpense } from '../../services/expense.service.js';
 import { addMemberToGroup, updateGroupName, subscribeToGroup, removeMemberFromGroup } from '../../services/group.service.js';
 import { getUserByEmail, getUserRecord } from '../../services/user.service.js';
+import { writeLog, subscribeToLogs } from '../../services/log.service.js';
 import { navigate } from '../../router.js';
 import { renderExpenseForm } from './ExpenseForm.js';
 import { renderSettlementView } from '../settlement/SettlementView.js';
 import { formatCents } from '../../logic/settlement.js';
-import type { Group, Expense } from '../../types/index.js';
+import type { Group, Expense, LogEntry } from '../../types/index.js';
 import type { Unsubscribe } from 'firebase/firestore';
 
 const PALETTE = ['#e53e3e','#dd6b20','#ecc94b','#38a169','#319795','#4f6ef7','#805ad5','#d53f8c'];
@@ -25,13 +26,16 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
   let group = initialGroup;
 
   let expenses: Expense[] = [];
+  let logs: LogEntry[] = [];
   let memberNameMap: Record<string, string> = {};
   let memberColorMap: Record<string, string> = {};
   let profilesReady = false;
+  let activeTab: 'expenses' | 'history' = 'expenses';
   let searchQuery = '';
   let filterPaidBy = '';
   let unsubGroup: Unsubscribe | null = null;
   let unsubExpenses: Unsubscribe | null = null;
+  let unsubLogs: Unsubscribe | null = null;
 
   // Fetch fresh display names and colors from Firestore in a single pass
   function refreshMemberNames() {
@@ -86,7 +90,7 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
             ${group.members.map(m => {
               const name = memberNameMap[m.uid] ?? m.displayName;
               const involved = expenses.some(e => e.paidBy === m.uid || e.splitBetween.includes(m.uid));
-              const canRemove = !involved && m.uid !== user.uid;
+              const canRemove = !involved && m.uid !== user!.uid;
               return `<div class="member-chip">
                 <div class="member-chip-avatar" style="background:${avatarColor(m.uid, memberColorMap)}">${escapeHtml(name[0].toUpperCase())}</div>
                 <span class="member-chip-name">${escapeHtml(name)}</span>
@@ -95,23 +99,29 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
             }).join('')}
           </div>
 
-          <div class="section-header" style="margin-top:16px">
-            <h2>Expenses</h2>
+          <div class="tab-bar" style="margin-top:16px">
+            <button class="tab-btn${activeTab === 'expenses' ? ' active' : ''}" id="tab-expenses">Expenses</button>
+            <button class="tab-btn${activeTab === 'history' ? ' active' : ''}" id="tab-history">History</button>
           </div>
 
-          <div class="expense-filters">
-            <input id="expense-search" class="input input-sm" type="search"
-              placeholder="Search expenses…" value="${escapeHtml(searchQuery)}" />
-            <select id="expense-filter-payer" class="input input-sm">
-              <option value="">All payers</option>
-              ${group.members.map(m => {
-                const name = memberNameMap[m.uid] ?? m.displayName;
-                return `<option value="${m.uid}"${filterPaidBy === m.uid ? ' selected' : ''}>${escapeHtml(name)}</option>`;
-              }).join('')}
-            </select>
+          <div id="tab-expenses-panel" ${activeTab !== 'expenses' ? 'hidden' : ''}>
+            <div class="expense-filters">
+              <input id="expense-search" class="input input-sm" type="search"
+                placeholder="Search expenses…" value="${escapeHtml(searchQuery)}" />
+              <select id="expense-filter-payer" class="input input-sm">
+                <option value="">All payers</option>
+                ${group.members.map(m => {
+                  const name = memberNameMap[m.uid] ?? m.displayName;
+                  return `<option value="${m.uid}"${filterPaidBy === m.uid ? ' selected' : ''}>${escapeHtml(name)}</option>`;
+                }).join('')}
+              </select>
+            </div>
+            <div id="expense-list-root"></div>
           </div>
 
-          <div id="expense-list-root"></div>
+          <div id="tab-history-panel" ${activeTab !== 'history' ? 'hidden' : ''}>
+            <div id="history-root"></div>
+          </div>
         </main>
 
         <div id="modal-root"></div>
@@ -175,12 +185,71 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
       root.querySelectorAll('.expense-delete').forEach(btn => {
         btn.addEventListener('click', async () => {
           const id = (btn as HTMLElement).dataset.id!;
-          if (confirm('Delete this expense?')) await deleteExpense(group.id, id);
+          if (confirm('Delete this expense?')) {
+            const exp = expenses.find(e => e.id === id);
+            await deleteExpense(group.id, id);
+            if (exp) writeLog(group.id, {
+              groupId: group.id,
+              action: 'deleted',
+              expenseDescription: exp.description,
+              amountCents: exp.amount,
+              actorUid: user!.uid,
+              actorName: user!.displayName,
+            }).catch(console.error);
+          }
         });
       });
     }
 
+    function renderHistoryItems() {
+      const root = container.querySelector<HTMLElement>('#history-root');
+      if (!root) return;
+      if (logs.length === 0) {
+        root.innerHTML = '<div class="empty-state"><p>No history yet.</p></div>';
+        return;
+      }
+      root.innerHTML = `
+        <ul class="log-list">
+          ${logs.map(entry => {
+            const color = memberColorMap[entry.actorUid] ?? avatarColor(entry.actorUid, memberColorMap);
+            const actionLabel = entry.action === 'added' ? 'Added' : entry.action === 'edited' ? 'Edited' : 'Deleted';
+            const actionClass = entry.action === 'deleted' ? 'log-action-deleted' : entry.action === 'edited' ? 'log-action-edited' : 'log-action-added';
+            const time = formatRelativeTime(entry.createdAt);
+            return `
+              <li class="log-item">
+                <div class="expense-avatar" style="background:${color}">${escapeHtml(entry.actorName[0].toUpperCase())}</div>
+                <div class="log-info">
+                  <span class="log-desc">
+                    <span class="log-action ${actionClass}">${actionLabel}</span>
+                    "${escapeHtml(entry.expenseDescription)}"
+                    <span class="log-amount">${formatCents(entry.amountCents)}</span>
+                  </span>
+                  <span class="log-meta">${escapeHtml(entry.actorName)} &middot; ${time}</span>
+                </div>
+              </li>`;
+          }).join('')}
+        </ul>
+      `;
+    }
+
     renderExpenseItems();
+    renderHistoryItems();
+
+    container.querySelector('#tab-expenses')!.addEventListener('click', () => {
+      activeTab = 'expenses';
+      container.querySelector('#tab-expenses')!.classList.add('active');
+      container.querySelector('#tab-history')!.classList.remove('active');
+      container.querySelector<HTMLElement>('#tab-expenses-panel')!.removeAttribute('hidden');
+      container.querySelector<HTMLElement>('#tab-history-panel')!.setAttribute('hidden', '');
+    });
+
+    container.querySelector('#tab-history')!.addEventListener('click', () => {
+      activeTab = 'history';
+      container.querySelector('#tab-history')!.classList.add('active');
+      container.querySelector('#tab-expenses')!.classList.remove('active');
+      container.querySelector<HTMLElement>('#tab-history-panel')!.removeAttribute('hidden');
+      container.querySelector<HTMLElement>('#tab-expenses-panel')!.setAttribute('hidden', '');
+    });
 
     container.querySelector('#expense-search')!.addEventListener('input', e => {
       searchQuery = (e.target as HTMLInputElement).value;
@@ -249,9 +318,20 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
     if (profilesReady) render();
   });
 
+  unsubLogs = subscribeToLogs(group.id, newLogs => {
+    logs = newLogs;
+    if (profilesReady) {
+      const root = container.querySelector<HTMLElement>('#history-root');
+      if (root) {
+        // Re-render only history list when already mounted
+        render();
+      }
+    }
+  });
+
   refreshMemberNames();
 
-  return () => { unsubGroup?.(); unsubExpenses?.(); };
+  return () => { unsubGroup?.(); unsubExpenses?.(); unsubLogs?.(); };
 }
 
 function renderRenameModal(
@@ -463,4 +543,13 @@ function renderInviteModal(container: HTMLElement, group: Group, onClose: () => 
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function formatRelativeTime(date: Date): string {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return date.toLocaleDateString();
 }
