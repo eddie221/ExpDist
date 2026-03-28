@@ -1,11 +1,14 @@
 import { store } from '../../store/app.store.js';
 import { navigate } from '../../router.js';
-import { updateDisplayName } from '../../services/user.service.js';
+import { updateDisplayName, updateUserColor } from '../../services/user.service.js';
+
+const PALETTE = ['#e53e3e','#dd6b20','#ecc94b','#38a169','#319795','#4f6ef7','#805ad5','#d53f8c'];
 
 export function renderProfilePage(container: HTMLElement): void {
   function render(saving = false, saved = false, error = '') {
     const { user } = store.getState();
     if (!user) return;
+    const avatarBg = user.color ?? '#4f6ef7';
     container.innerHTML = `
       <div class="app-layout">
         <header class="app-header">
@@ -15,7 +18,7 @@ export function renderProfilePage(container: HTMLElement): void {
 
         <main class="main-content">
           <div class="profile-card">
-            <div class="profile-avatar">${escapeHtml(user!.displayName.charAt(0).toUpperCase())}</div>
+            <div class="profile-avatar" style="background:${avatarBg}">${escapeHtml(user!.displayName.charAt(0).toUpperCase())}</div>
             <h2 class="profile-name">${escapeHtml(user!.displayName)}</h2>
 
             <div class="profile-fields">
@@ -31,6 +34,15 @@ export function renderProfilePage(container: HTMLElement): void {
                   <button class="btn btn-ghost btn-sm" id="copy-uid">Copy</button>
                 </div>
                 <span class="profile-hint">Share this ID so others can add you to a group.</span>
+              </div>
+
+              <div class="profile-field">
+                <span class="profile-label">Avatar Color</span>
+                <div class="color-swatches">
+                  ${PALETTE.map(c => `
+                    <button class="color-swatch${user!.color === c ? ' active' : ''}" style="background:${c}" data-color="${c}" title="${c}"></button>
+                  `).join('')}
+                </div>
               </div>
 
               <div class="profile-field">
@@ -68,6 +80,20 @@ export function renderProfilePage(container: HTMLElement): void {
         const btn = container.querySelector<HTMLButtonElement>('#copy-uid')!;
         btn.textContent = 'Copied!';
         setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+      });
+    });
+
+    container.querySelectorAll<HTMLButtonElement>('.color-swatch').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const color = btn.dataset.color!;
+        const currentUser = store.getState().user!;
+        try {
+          await updateUserColor(currentUser.uid, color);
+          store.setState({ user: { ...currentUser, color } });
+          render();
+        } catch (err) {
+          console.error(err);
+        }
       });
     });
 

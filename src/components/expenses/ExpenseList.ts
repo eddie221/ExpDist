@@ -1,13 +1,22 @@
 import { store } from '../../store/app.store.js';
 import { subscribeToExpenses, deleteExpense, addExpense } from '../../services/expense.service.js';
 import { addMemberToGroup, updateGroupName, subscribeToGroup } from '../../services/group.service.js';
-import { getUserByEmail, getUserRecord, getUserDisplayNames } from '../../services/user.service.js';
+import { getUserByEmail, getUserRecord } from '../../services/user.service.js';
 import { navigate } from '../../router.js';
 import { renderExpenseForm } from './ExpenseForm.js';
 import { renderSettlementView } from '../settlement/SettlementView.js';
 import { formatCents } from '../../logic/settlement.js';
 import type { Group, Expense } from '../../types/index.js';
 import type { Unsubscribe } from 'firebase/firestore';
+
+const PALETTE = ['#e53e3e','#dd6b20','#ecc94b','#38a169','#319795','#4f6ef7','#805ad5','#d53f8c'];
+
+function avatarColor(uid: string, colorMap: Record<string, string>): string {
+  if (colorMap[uid]) return colorMap[uid];
+  let hash = 0;
+  for (let i = 0; i < uid.length; i++) hash = (hash * 31 + uid.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+}
 
 export function renderExpenseList(container: HTMLElement, initialGroup: Group): () => void {
   const { user } = store.getState();
@@ -17,17 +26,27 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
 
   let expenses: Expense[] = [];
   let memberNameMap: Record<string, string> = {};
+  let memberColorMap: Record<string, string> = {};
+  let profilesReady = false;
   let searchQuery = '';
   let filterPaidBy = '';
   let unsubGroup: Unsubscribe | null = null;
   let unsubExpenses: Unsubscribe | null = null;
 
-  // Fetch fresh display names from Firestore
+  // Fetch fresh display names and colors from Firestore in a single pass
   function refreshMemberNames() {
-    getUserDisplayNames(group.members.map(m => m.uid)).then(nameMap => {
-      memberNameMap = nameMap;
+    const uids = group.members.map(m => m.uid);
+    Promise.all(uids.map(uid => getUserRecord(uid))).then(records => {
+      memberNameMap = {};
+      memberColorMap = {};
+      uids.forEach((uid, i) => {
+        const r = records[i];
+        if (r?.displayName) memberNameMap[uid] = r.displayName;
+        if (r?.color) memberColorMap[uid] = r.color;
+      });
+      profilesReady = true;
       render();
-    });
+    }).catch(console.error);
   }
 
   function openRenameModal() {
@@ -67,7 +86,7 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
             ${group.members.map(m => {
               const name = memberNameMap[m.uid] ?? m.displayName;
               return `<div class="member-chip">
-                <div class="member-chip-avatar">${escapeHtml(name[0].toUpperCase())}</div>
+                <div class="member-chip-avatar" style="background:${avatarColor(m.uid, memberColorMap)}">${escapeHtml(name[0].toUpperCase())}</div>
                 <span class="member-chip-name">${escapeHtml(name)}</span>
               </div>`;
             }).join('')}
@@ -117,12 +136,17 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
 
       root.innerHTML = `
         <ul class="expense-list">
-          ${filtered.map(exp => `
+          ${filtered.map(exp => {
+            const payerName = paidByMap[exp.paidBy] ?? exp.paidBy;
+            return `
             <li class="expense-item">
+              <div class="expense-avatar" style="background:${avatarColor(exp.paidBy, memberColorMap)}">
+                ${escapeHtml(payerName[0].toUpperCase())}
+              </div>
               <div class="expense-info">
                 <span class="expense-desc">${escapeHtml(exp.description)}</span>
                 <span class="expense-meta">
-                  Paid by ${escapeHtml(paidByMap[exp.paidBy] ?? exp.paidBy)}
+                  Paid by ${escapeHtml(payerName)}
                   &mdash; split ${exp.splitBetween.length} way${exp.splitBetween.length !== 1 ? 's' : ''}
                 </span>
               </div>
@@ -131,8 +155,8 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
                 <button class="btn-icon expense-edit" data-id="${exp.id}" title="Edit">✎</button>
                 <button class="btn btn-danger btn-sm expense-delete" data-id="${exp.id}">✕</button>
               </div>
-            </li>
-          `).join('')}
+            </li>`;
+          }).join('')}
         </ul>
       `;
 
@@ -204,10 +228,10 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
 
   unsubExpenses = subscribeToExpenses(group.id, newExpenses => {
     expenses = newExpenses;
-    render();
+    if (profilesReady) render();
   });
 
-  render();
+  refreshMemberNames();
 
   return () => { unsubGroup?.(); unsubExpenses?.(); };
 }

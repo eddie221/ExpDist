@@ -3,6 +3,7 @@ export interface User {
   displayName: string;
   email: string | null;
   photoURL: string | null;
+  color?: string;
 }
 
 export interface GroupMember {

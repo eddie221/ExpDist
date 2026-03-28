@@ -18,6 +18,7 @@ export interface UserRecord {
   uid: string;
   displayName: string;
   email: string;
+  color?: string;
   createdAt: Date;
 }
 
@@ -38,6 +39,7 @@ export async function getUserRecord(uid: string): Promise<UserRecord | null> {
     uid: data.uid,
     displayName: data.displayName,
     email: data.email,
+    color: data.color,
     createdAt: data.createdAt?.toDate() ?? new Date(),
   };
 }
@@ -47,6 +49,24 @@ export async function updateDisplayName(uid: string, displayName: string): Promi
   if (auth.currentUser) {
     await updateProfile(auth.currentUser, { displayName });
   }
+}
+
+export async function updateUserColor(uid: string, color: string): Promise<void> {
+  await updateDoc(doc(db, 'users', uid), { color });
+}
+
+export async function getUserColors(uids: string[]): Promise<Record<string, string>> {
+  const entries = await Promise.all(
+    uids.map(async uid => {
+      const record = await getUserRecord(uid);
+      return [uid, record?.color ?? null] as const;
+    })
+  );
+  const result: Record<string, string> = {};
+  for (const [uid, color] of entries) {
+    if (color !== null) result[uid] = color;
+  }
+  return result;
 }
 
 export async function getUserDisplayNames(uids: string[]): Promise<Record<string, string>> {
@@ -72,6 +92,7 @@ export async function getUserByEmail(email: string): Promise<UserRecord | null> 
     uid: data.uid,
     displayName: data.displayName,
     email: data.email,
+    color: data.color,
     createdAt: data.createdAt?.toDate() ?? new Date(),
   };
 }

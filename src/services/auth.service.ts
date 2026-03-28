@@ -19,6 +19,7 @@ export function initAuth(onReady: () => void): () => void {
   return onAuthStateChanged(auth, async fbUser => {
     if (fbUser) {
       let displayName: string;
+      let color: string | undefined;
       if (pendingDisplayName) {
         // Sign-up in progress — use the known name, skip Firestore lookup
         displayName = pendingDisplayName;
@@ -27,12 +28,13 @@ export function initAuth(onReady: () => void): () => void {
         try {
           const record = await getUserRecord(fbUser.uid);
           if (record?.displayName) displayName = record.displayName;
+          color = record?.color;
         } catch {
           // fall back to Firebase Auth display name
         }
       }
       store.setState({
-        user: { uid: fbUser.uid, displayName, email: fbUser.email, photoURL: fbUser.photoURL },
+        user: { uid: fbUser.uid, displayName, email: fbUser.email, photoURL: fbUser.photoURL, color },
       });
     } else {
       store.setState({ user: null });
