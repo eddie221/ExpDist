@@ -1,6 +1,6 @@
 import { store } from '../../store/app.store.js';
 import { subscribeToExpenses, deleteExpense, addExpense } from '../../services/expense.service.js';
-import { addMemberToGroup, updateGroupName, subscribeToGroup } from '../../services/group.service.js';
+import { addMemberToGroup, updateGroupName, subscribeToGroup, removeMemberFromGroup } from '../../services/group.service.js';
 import { getUserByEmail, getUserRecord } from '../../services/user.service.js';
 import { navigate } from '../../router.js';
 import { renderExpenseForm } from './ExpenseForm.js';
@@ -85,9 +85,12 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
           <div class="member-chips">
             ${group.members.map(m => {
               const name = memberNameMap[m.uid] ?? m.displayName;
+              const involved = expenses.some(e => e.paidBy === m.uid || e.splitBetween.includes(m.uid));
+              const canRemove = !involved && m.uid !== user.uid;
               return `<div class="member-chip">
                 <div class="member-chip-avatar" style="background:${avatarColor(m.uid, memberColorMap)}">${escapeHtml(name[0].toUpperCase())}</div>
                 <span class="member-chip-name">${escapeHtml(name)}</span>
+                ${canRemove ? `<button class="member-chip-remove" data-uid="${m.uid}" title="Remove from group">&times;</button>` : ''}
               </div>`;
             }).join('')}
           </div>
@@ -198,6 +201,21 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
     if (expenses.length > 0) {
       renderSettlementView(settlementRoot, displayGroup, expenses, onSettlementConfirmed, openRenameModal);
     }
+
+    container.querySelectorAll<HTMLButtonElement>('.member-chip-remove').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const uid = btn.dataset.uid!;
+        const member = group.members.find(m => m.uid === uid);
+        if (!member) return;
+        btn.disabled = true;
+        try {
+          await removeMemberFromGroup(group.id, member);
+        } catch (err) {
+          console.error(err);
+          btn.disabled = false;
+        }
+      });
+    });
 
     container.querySelector('#back-btn')!.addEventListener('click', () =>
       navigate({ name: 'groups' })

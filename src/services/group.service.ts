@@ -10,6 +10,7 @@ import {
   onSnapshot,
   serverTimestamp,
   arrayUnion,
+  arrayRemove,
   writeBatch,
   Timestamp,
   type Unsubscribe,
@@ -76,6 +77,14 @@ export async function getGroup(groupId: string): Promise<Group | null> {
   const snap = await getDoc(doc(db, 'groups', groupId));
   if (!snap.exists()) return null;
   return toGroup(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function removeMemberFromGroup(groupId: string, member: GroupMember): Promise<void> {
+  const ref = doc(db, 'groups', groupId);
+  await updateDoc(ref, {
+    members: arrayRemove(member),
+    memberUids: arrayRemove(member.uid),
+  });
 }
 
 export async function updateGroupName(groupId: string, name: string): Promise<void> {
