@@ -410,6 +410,11 @@ body {
   gap: 12px;
 }
 
+.expense-item-settlement {
+  background: #ebf8ff;
+  border-color: #bee3f8;
+}
+
 .expense-info {
   display: flex;
   flex-direction: column;

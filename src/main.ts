@@ -1,5 +1,5 @@
 import './styles/main.css';
-import { initAuth } from './services/auth.service.js';
+import { initAuth, signOut } from './services/auth.service.js';
 import { getGroup } from './services/group.service.js';
 import { store } from './store/app.store.js';
 import { initRouter, navigate } from './router.js';
@@ -11,6 +11,27 @@ import type { Route } from './types/index.js';
 
 const appEl = document.getElementById('app')!;
 let cleanupRoute: (() => void) | null = null;
+
+// ── Inactivity auto-logout ──────────────────────────────────────────────────
+const INACTIVITY_MS = 10 * 60 * 1000; // 10 minutes
+let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+
+function resetInactivityTimer() {
+  if (!store.getState().user) return;
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(() => { signOut(); }, INACTIVITY_MS);
+}
+
+function startInactivityTracking() {
+  const events = ['click', 'keydown', 'mousemove', 'scroll', 'touchstart'];
+  events.forEach(e => window.addEventListener(e, resetInactivityTimer, { passive: true }));
+  resetInactivityTimer();
+}
+
+function stopInactivityTracking() {
+  if (inactivityTimer) { clearTimeout(inactivityTimer); inactivityTimer = null; }
+}
+// ───────────────────────────────────────────────────────────────────────────
 
 function handleRoute(route: Route): void {
   const { user } = store.getState();
@@ -66,6 +87,12 @@ initAuth(() => {
     // Re-evaluate the current route whenever auth state changes
     const hash = window.location.hash;
     const { user } = store.getState();
+
+    if (user) {
+      startInactivityTracking();
+    } else {
+      stopInactivityTracking();
+    }
 
     if (!user && hash !== '#/login') {
       navigate({ name: 'login' });

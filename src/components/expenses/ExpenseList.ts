@@ -151,8 +151,9 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
         <ul class="expense-list">
           ${filtered.map(exp => {
             const payerName = paidByMap[exp.paidBy] ?? exp.paidBy;
+            const isSettlement = exp.description === 'Settlement payment';
             return `
-            <li class="expense-item">
+            <li class="expense-item${isSettlement ? ' expense-item-settlement' : ''}">
               <div class="expense-avatar" style="background:${avatarColor(exp.paidBy, memberColorMap)}">
                 ${escapeHtml(payerName[0].toUpperCase())}
               </div>
