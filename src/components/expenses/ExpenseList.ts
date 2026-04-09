@@ -31,6 +31,7 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
   let memberColorMap: Record<string, string> = {};
   let profilesReady = false;
   let activeTab: 'expenses' | 'history' = 'expenses';
+  let settlementView: 'list' | 'graph' = 'list';
   let searchQuery = '';
   let filterPaidBy = '';
   let unsubGroup: Unsubscribe | null = null;
@@ -269,7 +270,10 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
       members: group.members.map(m => ({ ...m, displayName: memberNameMap[m.uid] ?? m.displayName })),
     };
     if (expenses.length > 0) {
-      renderSettlementView(settlementRoot, displayGroup, expenses, onSettlementConfirmed, openRenameModal);
+      renderSettlementView(
+        settlementRoot, displayGroup, expenses, onSettlementConfirmed, openRenameModal,
+        memberColorMap, settlementView, v => { settlementView = v; }
+      );
     }
 
     container.querySelectorAll<HTMLButtonElement>('.member-chip-remove').forEach(btn => {
