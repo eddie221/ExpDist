@@ -11,6 +11,9 @@ function parseHash(hash: string): Route {
   const groupMatch = path.match(/^\/groups\/([^/]+)$/);
   if (groupMatch) return { name: 'group', id: groupMatch[1] };
 
+  const joinMatch = path.match(/^\/join\/([^/]+)$/);
+  if (joinMatch) return { name: 'join', token: joinMatch[1] };
+
   return { name: 'not-found' };
 }
 
@@ -27,6 +30,9 @@ export function navigate(route: Route): void {
       break;
     case 'profile':
       window.location.hash = '/profile';
+      break;
+    case 'join':
+      window.location.hash = `/join/${route.token}`;
       break;
     default:
       window.location.hash = '/';

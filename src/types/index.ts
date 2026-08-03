@@ -56,9 +56,18 @@ export interface Settlement {
   amount: number; // cents
 }
 
+export interface Invite {
+  token: string;
+  groupId: string;
+  groupName: string;
+  createdBy: string;
+  createdAt: Date;
+}
+
 export type Route =
   | { name: 'login' }
   | { name: 'groups' }
   | { name: 'group'; id: string }
   | { name: 'profile' }
+  | { name: 'join'; token: string }
   | { name: 'not-found' };

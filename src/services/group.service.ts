@@ -63,6 +63,15 @@ export async function addMemberToGroup(groupId: string, member: GroupMember): Pr
   });
 }
 
+export async function joinGroupViaInvite(groupId: string, token: string, member: GroupMember): Promise<void> {
+  const ref = doc(db, 'groups', groupId);
+  await updateDoc(ref, {
+    members: arrayUnion(member),
+    memberUids: arrayUnion(member.uid),
+    joinedVia: token,
+  });
+}
+
 export function subscribeToGroup(
   groupId: string,
   onChange: (group: Group | null) => void

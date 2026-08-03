@@ -1,6 +1,7 @@
 import { store } from '../../store/app.store.js';
 import { subscribeToExpenses, deleteExpense, addExpense } from '../../services/expense.service.js';
 import { addMemberToGroup, updateGroupName, subscribeToGroup, removeMemberFromGroup } from '../../services/group.service.js';
+import { createInvite } from '../../services/invite.service.js';
 import { getUserByEmail, getUserRecord } from '../../services/user.service.js';
 import { writeLog, subscribeToLogs } from '../../services/log.service.js';
 import { navigate } from '../../router.js';
@@ -432,6 +433,16 @@ function renderInviteModal(container: HTMLElement, group: Group, onClose: () => 
           <button class="btn-close" id="modal-close">&times;</button>
         </div>
         <div class="modal-body">
+          <div class="invite-link-section">
+            <p class="contact-history-label">Share an invite link</p>
+            <div class="invite-link-row">
+              <input id="invite-link-input" class="input" readonly placeholder="Click Generate to create a link" />
+              <button class="btn btn-secondary" id="invite-link-generate">Generate</button>
+              <button class="btn btn-primary" id="invite-link-copy" hidden>Copy</button>
+            </div>
+            <div id="invite-link-error" class="auth-error" hidden></div>
+          </div>
+          <div class="contact-divider">or</div>
           ${contactsHtml}
           <div class="form-field">
             <label for="invite-email">Email address or User ID</label>
@@ -453,6 +464,41 @@ function renderInviteModal(container: HTMLElement, group: Group, onClose: () => 
   container.querySelector('#cancel-btn')!.addEventListener('click', close);
   container.querySelector('#modal-overlay')!.addEventListener('click', e => {
     if (e.target === container.querySelector('#modal-overlay')) close();
+  });
+
+  // Invite link generation
+  const linkInput = container.querySelector<HTMLInputElement>('#invite-link-input')!;
+  const genBtn = container.querySelector<HTMLButtonElement>('#invite-link-generate')!;
+  const copyBtn = container.querySelector<HTMLButtonElement>('#invite-link-copy')!;
+  const linkErr = container.querySelector<HTMLElement>('#invite-link-error')!;
+  genBtn.addEventListener('click', async () => {
+    if (!user) return;
+    linkErr.hidden = true;
+    genBtn.disabled = true;
+    genBtn.textContent = 'Generating…';
+    try {
+      const token = await createInvite(group.id, group.name, user.uid);
+      const base = window.location.href.split('#')[0];
+      const url = `${base}#/join/${token}`;
+      linkInput.value = url;
+      genBtn.hidden = true;
+      copyBtn.hidden = false;
+    } catch (err) {
+      console.error(err);
+      linkErr.textContent = 'Failed to generate link.';
+      linkErr.hidden = false;
+      genBtn.disabled = false;
+      genBtn.textContent = 'Generate';
+    }
+  });
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(linkInput.value);
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.textContent = 'Copy'; }, 1500);
+    } catch {
+      linkInput.select();
+    }
   });
 
   // Quick-add from contacts history

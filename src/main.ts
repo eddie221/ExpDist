@@ -7,7 +7,10 @@ import { renderLoginPage } from './components/auth/LoginPage.js';
 import { renderGroupList } from './components/groups/GroupList.js';
 import { renderExpenseList } from './components/expenses/ExpenseList.js';
 import { renderProfilePage } from './components/profile/ProfilePage.js';
+import { renderJoinPage } from './components/join/JoinPage.js';
 import type { Route } from './types/index.js';
+
+const PENDING_JOIN_KEY = 'expdist:pendingJoinToken';
 
 const appEl = document.getElementById('app')!;
 let cleanupRoute: (() => void) | null = null;
@@ -38,6 +41,9 @@ function handleRoute(route: Route): void {
 
   // Auth guard
   if (!user && route.name !== 'login') {
+    if (route.name === 'join') {
+      sessionStorage.setItem(PENDING_JOIN_KEY, route.token);
+    }
     navigate({ name: 'login' });
     return;
   }
@@ -76,6 +82,10 @@ function handleRoute(route: Route): void {
       renderProfilePage(appEl);
       break;
 
+    case 'join':
+      cleanupRoute = renderJoinPage(appEl, route.token) ?? null;
+      break;
+
     default:
       appEl.innerHTML = '<div class="error-page"><h2>404 — Page not found</h2></div>';
   }
@@ -94,10 +104,16 @@ initAuth(() => {
       stopInactivityTracking();
     }
 
-    if (!user && hash !== '#/login') {
+    if (!user && hash !== '#/login' && !hash.startsWith('#/join/')) {
       navigate({ name: 'login' });
     } else if (user && (hash === '#/login' || hash === '' || hash === '#/')) {
-      navigate({ name: 'groups' });
+      const pendingToken = sessionStorage.getItem(PENDING_JOIN_KEY);
+      if (pendingToken) {
+        sessionStorage.removeItem(PENDING_JOIN_KEY);
+        navigate({ name: 'join', token: pendingToken });
+      } else {
+        navigate({ name: 'groups' });
+      }
     }
   });
 

@@ -1009,3 +1009,41 @@ body {
   display: flex;
   justify-content: flex-end;
 }
+
+.invite-link-section {
+  margin-bottom: 12px;
+}
+
+.invite-link-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.invite-link-row .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.join-card {
+  max-width: 480px;
+  margin: 48px auto;
+  padding: 32px;
+  background: var(--color-surface, #fff);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.join-group-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 12px 0 24px;
+}
+
+.join-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
