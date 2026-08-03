@@ -10,6 +10,7 @@ export interface GroupMember {
   uid: string;
   displayName: string;
   email?: string;
+  weight?: number;
 }
 
 export interface Group {

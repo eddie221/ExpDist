@@ -2,14 +2,20 @@ import type { Expense, Balance, Settlement, GroupMember } from '../types/index.j
 
 export function computeBalances(expenses: Expense[], members: GroupMember[]): Balance[] {
   const net: Record<string, number> = {};
-  members.forEach(m => (net[m.uid] = 0));
+  const weightOf: Record<string, number> = {};
+  members.forEach(m => {
+    net[m.uid] = 0;
+    const w = m.weight ?? 1;
+    weightOf[m.uid] = w > 0 ? w : 1;
+  });
 
   for (const expense of expenses) {
-    const splitCount = expense.splitBetween.length;
-    if (splitCount === 0) continue;
-    const share = Math.round(expense.amount / splitCount);
+    if (expense.splitBetween.length === 0) continue;
+    const totalWeight = expense.splitBetween.reduce((sum, uid) => sum + (weightOf[uid] ?? 1), 0);
+    if (totalWeight <= 0) continue;
     net[expense.paidBy] = (net[expense.paidBy] ?? 0) + expense.amount;
     expense.splitBetween.forEach(uid => {
+      const share = Math.round(expense.amount * (weightOf[uid] ?? 1) / totalWeight);
       net[uid] = (net[uid] ?? 0) - share;
     });
   }

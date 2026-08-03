@@ -100,6 +100,15 @@ export async function updateGroupName(groupId: string, name: string): Promise<vo
   await updateDoc(doc(db, 'groups', groupId), { name });
 }
 
+export async function updateMemberWeight(groupId: string, uid: string, weight: number): Promise<void> {
+  const ref = doc(db, 'groups', groupId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) throw new Error('Group not found');
+  const members = (snap.data().members as GroupMember[]) ?? [];
+  const next = members.map(m => (m.uid === uid ? { ...m, weight } : m));
+  await updateDoc(ref, { members: next });
+}
+
 export async function deleteGroup(groupId: string): Promise<void> {
   const expensesSnap = await getDocs(collection(db, 'groups', groupId, 'expenses'));
   const batch = writeBatch(db);

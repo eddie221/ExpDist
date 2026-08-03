@@ -1,6 +1,6 @@
 import { store } from '../../store/app.store.js';
 import { subscribeToExpenses, deleteExpense, addExpense } from '../../services/expense.service.js';
-import { addMemberToGroup, updateGroupName, subscribeToGroup, removeMemberFromGroup } from '../../services/group.service.js';
+import { addMemberToGroup, updateGroupName, subscribeToGroup, removeMemberFromGroup, updateMemberWeight } from '../../services/group.service.js';
 import { createInvite } from '../../services/invite.service.js';
 import { getUserByEmail, getUserRecord } from '../../services/user.service.js';
 import { writeLog, subscribeToLogs } from '../../services/log.service.js';
@@ -31,7 +31,7 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
   let memberNameMap: Record<string, string> = {};
   let memberColorMap: Record<string, string> = {};
   let profilesReady = false;
-  let activeTab: 'expenses' | 'history' = 'expenses';
+  let activeTab: 'expenses' | 'history' | 'weight' = 'expenses';
   let settlementView: 'list' | 'graph' = 'list';
   let searchQuery = '';
   let filterPaidBy = '';
@@ -104,6 +104,7 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
           <div class="tab-bar" style="margin-top:16px">
             <button class="tab-btn${activeTab === 'expenses' ? ' active' : ''}" id="tab-expenses">Expenses</button>
             <button class="tab-btn${activeTab === 'history' ? ' active' : ''}" id="tab-history">History</button>
+            <button class="tab-btn${activeTab === 'weight' ? ' active' : ''}" id="tab-weight">Weight</button>
           </div>
 
           <div id="tab-expenses-panel" ${activeTab !== 'expenses' ? 'hidden' : ''}>
@@ -123,6 +124,10 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
 
           <div id="tab-history-panel" ${activeTab !== 'history' ? 'hidden' : ''}>
             <div id="history-root"></div>
+          </div>
+
+          <div id="tab-weight-panel" ${activeTab !== 'weight' ? 'hidden' : ''}>
+            <div id="weight-root"></div>
           </div>
         </main>
 
@@ -235,24 +240,76 @@ export function renderExpenseList(container: HTMLElement, initialGroup: Group): 
       `;
     }
 
+    function renderWeightPanel() {
+      const root = container.querySelector<HTMLElement>('#weight-root');
+      if (!root) return;
+      root.innerHTML = `
+        <p class="weight-hint">Your weight is the number of shares you cover in every expense you're part of. Higher weight means you pay a larger share.</p>
+        <ul class="weight-list">
+          ${group.members.map(m => {
+            const name = memberNameMap[m.uid] ?? m.displayName;
+            const weight = m.weight ?? 1;
+            const isSelf = m.uid === user!.uid;
+            return `
+              <li class="weight-item">
+                <div class="member-chip-avatar" style="background:${avatarColor(m.uid, memberColorMap)}">${escapeHtml(name[0].toUpperCase())}</div>
+                <span class="weight-name">${escapeHtml(name)}${isSelf ? ' <span class="weight-self">(you)</span>' : ''}</span>
+                ${isSelf
+                  ? `<input class="input input-sm weight-input" type="number" min="1" step="1" value="${weight}" data-uid="${m.uid}" />
+                     <button class="btn btn-primary btn-sm weight-save" data-uid="${m.uid}">Save</button>`
+                  : `<span class="weight-value">${weight}</span>`
+                }
+              </li>
+            `;
+          }).join('')}
+        </ul>
+        <div id="weight-error" class="auth-error" hidden></div>
+      `;
+
+      root.querySelectorAll<HTMLButtonElement>('.weight-save').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const uid = btn.dataset.uid!;
+          const input = root.querySelector<HTMLInputElement>(`.weight-input[data-uid="${uid}"]`)!;
+          const err = root.querySelector<HTMLElement>('#weight-error')!;
+          const value = parseInt(input.value, 10);
+          err.hidden = true;
+          if (!Number.isFinite(value) || value < 1) {
+            err.textContent = 'Weight must be a whole number of at least 1.';
+            err.hidden = false;
+            return;
+          }
+          btn.disabled = true;
+          const original = btn.textContent;
+          btn.textContent = 'Saving…';
+          try {
+            await updateMemberWeight(group.id, uid, value);
+          } catch (e) {
+            console.error(e);
+            err.textContent = 'Failed to save weight. Please try again.';
+            err.hidden = false;
+            btn.disabled = false;
+            btn.textContent = original ?? 'Save';
+          }
+        });
+      });
+    }
+
     renderExpenseItems();
     renderHistoryItems();
+    renderWeightPanel();
 
-    container.querySelector('#tab-expenses')!.addEventListener('click', () => {
-      activeTab = 'expenses';
-      container.querySelector('#tab-expenses')!.classList.add('active');
-      container.querySelector('#tab-history')!.classList.remove('active');
-      container.querySelector<HTMLElement>('#tab-expenses-panel')!.removeAttribute('hidden');
-      container.querySelector<HTMLElement>('#tab-history-panel')!.setAttribute('hidden', '');
-    });
+    function switchTab(next: 'expenses' | 'history' | 'weight') {
+      activeTab = next;
+      (['expenses', 'history', 'weight'] as const).forEach(t => {
+        container.querySelector(`#tab-${t}`)!.classList.toggle('active', t === next);
+        const panel = container.querySelector<HTMLElement>(`#tab-${t}-panel`)!;
+        if (t === next) panel.removeAttribute('hidden'); else panel.setAttribute('hidden', '');
+      });
+    }
 
-    container.querySelector('#tab-history')!.addEventListener('click', () => {
-      activeTab = 'history';
-      container.querySelector('#tab-history')!.classList.add('active');
-      container.querySelector('#tab-expenses')!.classList.remove('active');
-      container.querySelector<HTMLElement>('#tab-history-panel')!.removeAttribute('hidden');
-      container.querySelector<HTMLElement>('#tab-expenses-panel')!.setAttribute('hidden', '');
-    });
+    container.querySelector('#tab-expenses')!.addEventListener('click', () => switchTab('expenses'));
+    container.querySelector('#tab-history')!.addEventListener('click', () => switchTab('history'));
+    container.querySelector('#tab-weight')!.addEventListener('click', () => switchTab('weight'));
 
     container.querySelector('#expense-search')!.addEventListener('input', e => {
       searchQuery = (e.target as HTMLInputElement).value;
